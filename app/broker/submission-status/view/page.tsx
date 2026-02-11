@@ -3,11 +3,12 @@ export const revalidate = 0;
 
 import ViewClient from "./ViewClient";
 
-export default function Page({
+export default async function Page({
   searchParams,
 }: {
-  searchParams?: { document_set_id?: string };
+  searchParams: Promise<{ document_set_id?: string }>;
 }) {
-  const documentSetId = searchParams?.document_set_id ?? null;
+  const params = await searchParams;
+  const documentSetId = params?.document_set_id ?? null;
   return <ViewClient documentSetId={documentSetId} />;
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
+import { logActivity } from "@/app/lib/activityLogger";
 import Button from "@/app/components/Button";
 
 const supabase = createClient();
@@ -147,7 +148,16 @@ for (const doc of DOCUMENTS) {
   }
 }
 
-    /* 3️⃣ ROUTE TO REVIEW PAGE */
+    /* 3️⃣ LOG ACTIVITY */
+    await logActivity({
+      action: "DOCUMENT_UPLOAD",
+      actor_role: "BROKER",
+      reference_type: "document_set",
+      reference_id: documentSet.document_set_id,
+      remarks: `Uploaded ${DOCUMENTS.length} documents`,
+    });
+
+    /* 4️⃣ ROUTE TO REVIEW PAGE */
     router.push(
       `/broker/submit-entry/review?document_set_id=${documentSet.document_set_id}`
     );

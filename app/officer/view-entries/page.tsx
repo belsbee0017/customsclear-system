@@ -98,43 +98,7 @@ export default function OfficerViewEntriesPage() {
   const router = useRouter();
   const documentSetId = params.get("document_set_id");
 
-  useEffect(() => {
-  (async () => {
-    const { data } = await supabase.auth.getSession();
-
-    console.log("TEST 1 — SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log(
-      "TEST 1 — TOKEN_FIRST_30:",
-      data.session?.access_token?.slice(0, 30)
-    );
-    console.log("TEST 1 — USER_ID:", data.session?.user?.id);
-  })();
-}, []);
-
-useEffect(() => {
-  (async () => {
-    const { data } = await supabase.auth.getSession();
-    const jwt = data.session?.access_token;
-
-    if (!jwt) {
-      console.log("TEST 2 — NO JWT FOUND");
-      return;
-    }
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`,
-      {
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        },
-      }
-    );
-
-    console.log("TEST 2 — AUTH /user STATUS:", res.status);
-    console.log("TEST 2 — AUTH /user BODY:", await res.json());
-  })();
-}, []);
+  /* Session check removed — handled by officer/layout.tsx */
 
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [rawFields, setRawFields] = useState<RawField[]>([]);
@@ -192,7 +156,7 @@ useEffect(() => {
         .neq("field_name", "raw_text")
         .in(
           "document_id",
-          docs.map((d) => d.document_id)
+          (docs as DocumentRow[]).map((d: DocumentRow) => d.document_id)
         );
 
       setRawFields((fields ?? []) as RawField[]);
@@ -340,29 +304,20 @@ useEffect(() => {
         return;
       }
 
-      console.log("SESSION:", sessionData?.session);
-      console.log("USER_ID:", sessionData.session.user?.id);
-      console.log("EMAIL:", sessionData.session.user?.email);
-      console.log("ACCESS TOKEN:", sessionData.session.access_token);
-
       const accessToken = sessionData.session.access_token;
 
-      const res = await fetch(
-        "https://vziasnnzmmuhcuthbxcp.supabase.co/functions/v1/officer-action",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            document_set_id: documentSetId,
-            action,
-            remarks: action === "PROCEED" ? null : remarks.trim(),
-          }),
-        }
-      );
+      const res = await fetch("/api/officer-action", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          document_set_id: documentSetId,
+          action,
+          remarks: action === "PROCEED" ? null : remarks.trim(),
+        }),
+      });
 
       const result = await res.json().catch(() => ({}));
 

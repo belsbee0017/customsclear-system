@@ -7,8 +7,23 @@ import { createClient } from "@/app/lib/supabaseClient";
 type Submission = {
   document_set_id: string;
   created_at: string;
+  submitted_at?: string;
+  validated_at?: string;
   status: string;
 };
+
+function formatDateTime(dateStr: string) {
+  const date = new Date(dateStr);
+  return date.toLocaleString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
 
 export default function BrokerPastSubmissionsPage() {
   const router = useRouter();
@@ -29,10 +44,10 @@ export default function BrokerPastSubmissionsPage() {
 
       const { data } = await supabase
         .from("document_sets")
-        .select("document_set_id, created_at, status")
+        .select("document_set_id, created_at, submitted_at, validated_at, status")
         .eq("created_by", user.id)
-        .in("status", ["validated", "released", "completed"])
-        .order("created_at", { ascending: false });
+        .in("status", ["Validated"])
+        .order("validated_at", { ascending: false, nullsFirst: false });
 
       setEntries(data ?? []);
       setLoading(false);
@@ -61,7 +76,8 @@ export default function BrokerPastSubmissionsPage() {
           <thead>
             <tr>
               <th style={styles.th}>Entry No.</th>
-              <th style={styles.th}>Date Submitted</th>
+              <th style={styles.th}>Submitted</th>
+              <th style={styles.th}>Completed</th>
               <th style={styles.th}>Final Status</th>
             </tr>
           </thead>
@@ -69,7 +85,7 @@ export default function BrokerPastSubmissionsPage() {
           <tbody>
             {entries.length === 0 && (
               <tr>
-                <td colSpan={3} style={styles.emptyRow}>
+                <td colSpan={4} style={styles.emptyRow}>
                   No completed submissions found.
                 </td>
               </tr>
@@ -79,7 +95,14 @@ export default function BrokerPastSubmissionsPage() {
               <tr key={e.document_set_id}>
                 <td style={styles.tdMono}>{e.document_set_id}</td>
                 <td style={styles.td}>
-                  {new Date(e.created_at).toLocaleDateString()}
+                  <div style={{ fontSize: 13 }}>{formatDateTime(e.created_at || e.submitted_at || "")}</div>
+                </td>
+                <td style={styles.td}>
+                  {e.validated_at ? (
+                    <div style={{ fontSize: 13 }}>{formatDateTime(e.validated_at)}</div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#999" }}>—</span>
+                  )}
                 </td>
                 <td style={styles.td}>
                   <StatusBadge status={e.status} />

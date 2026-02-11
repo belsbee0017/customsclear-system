@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/app/lib/supabaseClient";
+import { formatPhTime } from "@/app/lib/activityLogger";
 
 const supabase = createClient();
 
@@ -12,6 +13,7 @@ type Log = {
   action: string;
   reference_type: string;
   reference_id: string | null;
+  remarks: string | null;
   created_at: string;
 };
 
@@ -123,27 +125,48 @@ export default function AdminActivityLogsPage() {
               <th style={styles.th}>Actor Role</th>
               <th style={styles.th}>User ID</th>
               <th style={styles.th}>Reference</th>
-              <th style={styles.th}>Timestamp</th>
+              <th style={styles.th}>Remarks</th>
+              <th style={styles.th}>Timestamp (PH Time)</th>
             </tr>
           </thead>
           <tbody>
             {logs.map((log) => (
               <tr key={log.log_id}>
-                <td style={styles.td}>{log.action}</td>
-                <td style={styles.td}>{log.actor_role}</td>
                 <td style={styles.td}>
-                  <div style={styles.userIdCell}>{log.user_id ?? "SYSTEM"}</div>
+                  <strong>{log.action}</strong>
                 </td>
                 <td style={styles.td}>
-                  {log.reference_type}
-                  {log.reference_id ? ` (${log.reference_id})` : ""}
+                  <span style={getRoleBadgeStyle(log.actor_role)}>
+                    {log.actor_role}
+                  </span>
                 </td>
-                <td style={styles.td}>{new Date(log.created_at).toLocaleString()}</td>
+                <td style={styles.td}>
+                  <div style={styles.userIdCell}>{log.user_id?.slice(0, 8) ?? "SYSTEM"}</div>
+                </td>
+                <td style={styles.td}>
+                  <div style={{ fontSize: 12 }}>
+                    {log.reference_type}
+                    {log.reference_id && (
+                      <div style={{ color: "#666", marginTop: 2 }}>
+                        {log.reference_id.slice(0, 8)}...
+                      </div>
+                    )}
+                  </div>
+                </td>
+                <td style={styles.td}>
+                  <div style={{ fontSize: 12, color: "#555" }}>{log.remarks || "—"}</div>
+                </td>
+                <td style={styles.td}>
+                  <div style={{ fontSize: 13 }}>{formatPhTime(log.created_at)}</div>
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
+                    {getRelativeTime(log.created_at)}
+                  </div>
+                </td>
               </tr>
             ))}
             {logs.length === 0 && (
               <tr>
-                <td colSpan={5} style={styles.empty}>No logs found.</td>
+                <td colSpan={6} style={styles.empty}>No logs found.</td>
               </tr>
             )}
           </tbody>
@@ -170,6 +193,41 @@ export default function AdminActivityLogsPage() {
       </div>
     </main>
   );
+}
+
+function getRoleBadgeStyle(role: string): React.CSSProperties {
+  const colors: Record<string, { bg: string; text: string }> = {
+    BROKER: { bg: "#dbeafe", text: "#1e40af" },
+    CUSTOMS_OFFICER: { bg: "#dcfce7", text: "#14532d" },
+    ADMIN: { bg: "#fef3c7", text: "#92400e" },
+    SYSTEM: { bg: "#f3f4f6", text: "#374151" },
+  };
+  const c = colors[role] || colors.SYSTEM;
+  return {
+    padding: "4px 8px",
+    borderRadius: 6,
+    background: c.bg,
+    color: c.text,
+    fontSize: 11,
+    fontWeight: 700,
+    display: "inline-block",
+  };
+}
+
+function getRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  return "";
 }
 
 const styles: { [key: string]: React.CSSProperties } = {

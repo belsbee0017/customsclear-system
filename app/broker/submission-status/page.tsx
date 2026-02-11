@@ -10,24 +10,53 @@ import { createClient } from "@/app/lib/supabaseClient";
 
    const STATUS_EXPLANATIONS: Record<string, string> = {
   pending: "Your submission has been received and is awaiting initial review.",
-  for_review: "Your submission is currently under review by Customs.",
-  validated: "Your submission has been validated. You may proceed to tax computation confirmation.",
+  for_review: "Your submission was sent back for corrections. Please review officer remarks.",
+  validated: "Your submission has been validated. Tax computation is in progress.",
   completed: "Final tax computation has been confirmed by Customs.",
-  error: "An issue was identified during validation.",
+  error: "Your submission was rejected. Please contact Customs for details.",
 };
 
 type Submission = {
   document_set_id: string;
   created_at: string;
+  updated_at?: string;
   status: string;
   has_computation?: boolean;
 };
 
+function formatDateTime(dateStr: string) {
+  const date = new Date(dateStr);
+  return date.toLocaleString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function getRelativeTime(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  return formatDateTime(dateStr);
+}
+
 function normStatus(s: string | null | undefined) {
   return String(s ?? "")
     .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
+    .toLowerCase();
 }
 
 export default function SubmissionStatusPage() {
@@ -54,6 +83,8 @@ export default function SubmissionStatusPage() {
       .select(`
         document_set_id,
         created_at,
+        submitted_at,
+        validated_at,
         status,
         tax_computation ( tax_id )
       `)
@@ -63,7 +94,8 @@ export default function SubmissionStatusPage() {
       if (!error && data) {
       const shaped = (data as any[]).map((r) => ({
         document_set_id: r.document_set_id,
-        created_at: r.created_at,
+        created_at: r.created_at || r.submitted_at,
+        updated_at: r.validated_at,
         status: r.status,
         has_computation: Array.isArray(r.tax_computation) && r.tax_computation.length > 0,
       }));
@@ -96,7 +128,8 @@ export default function SubmissionStatusPage() {
           <thead>
             <tr>
               <th style={styles.th}>Entry No.</th>
-              <th style={styles.th}>Date Submitted</th>
+              <th style={styles.th}>Submitted</th>
+              <th style={styles.th}>Last Updated</th>
               <th style={styles.th}>Status</th>
               <th style={styles.th}>Action</th>
             </tr>
@@ -105,7 +138,7 @@ export default function SubmissionStatusPage() {
           <tbody>
             {submissions.length === 0 && (
               <tr>
-                <td colSpan={4} style={styles.emptyRow}>
+                <td colSpan={5} style={styles.emptyRow}>
                   No submissions found.
                 </td>
               </tr>
@@ -118,7 +151,23 @@ export default function SubmissionStatusPage() {
                 </td>
 
                 <td style={styles.td}>
-                  {new Date(entry.created_at).toLocaleDateString()}
+                  <div style={{ fontSize: 13 }}>{formatDateTime(entry.created_at)}</div>
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
+                    {getRelativeTime(entry.created_at)}
+                  </div>
+                </td>
+
+                <td style={styles.td}>
+                  {entry.updated_at ? (
+                    <>
+                      <div style={{ fontSize: 13 }}>{formatDateTime(entry.updated_at)}</div>
+                      <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
+                        {getRelativeTime(entry.updated_at)}
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#999" }}>—</span>
+                  )}
                 </td>
 
                 <td style={styles.td}>

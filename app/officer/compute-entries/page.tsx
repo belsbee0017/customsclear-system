@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Button from "@/app/components/Button";
 import { createClient } from "@/app/lib/supabaseClient";
+import { logActivity } from "@/app/lib/activityLogger";
 
 const supabase = createClient();
 
@@ -74,42 +75,33 @@ export default function OfficerComputeEntriesPage() {
   const [processing, setProcessing] = useState(false);
 
   /* ===============================
-     EDGE CALL (FIXED)
-     - ALWAYS uses https://<project>.supabase.co/functions/v1/<fn>
-     - Avoids "Unexpected token <" by reading text first
+     API CALL (Local Next.js routes)
   =============================== */
-  async function callEdgeJson(fn: string, body?: any) {
+  async function callApi(endpoint: string, body?: Record<string, unknown>) {
     const { data: sessionData, error: sessErr } = await supabase.auth.getSession();
     if (sessErr) throw new Error(sessErr.message);
     if (!sessionData.session) throw new Error("No active session");
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !anonKey) {
-      throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
-    }
-
-    const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: anonKey,
         Authorization: `Bearer ${sessionData.session.access_token}`,
       },
       body: JSON.stringify(body ?? {}),
     });
 
     const text = await res.text();
-    let json: any = {};
+    let json: Record<string, unknown> = {};
     try {
-      json = text ? JSON.parse(text) : {};
+      json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
     } catch {
       throw new Error(`Non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`);
     }
 
     if (!res.ok) {
-      throw new Error(json?.error || json?.reason || `Edge call failed (HTTP ${res.status})`);
+      const error = (json?.error as string) || (json?.reason as string) || `API call failed (HTTP ${res.status})`;
+      throw new Error(error);
     }
 
     return json;
@@ -136,8 +128,8 @@ export default function OfficerComputeEntriesPage() {
     try {
       const today = asISODate(new Date());
 
-      // Prefer "get-forex-rate" first
-      const r = await callEdgeJson("get-forex-rate", {
+      // Get forex rate from local API
+      const r = await callApi("/api/forex-rate", {
         base_currency: "USD",
         quote_currency: "PHP",
         rate_date: today,
@@ -147,9 +139,9 @@ export default function OfficerComputeEntriesPage() {
       if (!Number.isFinite(rate)) throw new Error("Rate not available");
 
       setExchangeRate(rate);
-      setRateDate(r?.rate_date ?? today);
-      setBaseCurrency(r?.base_currency ?? "USD");
-      setQuoteCurrency(r?.quote_currency ?? "PHP");
+      setRateDate((r?.rate_date as string) ?? today);
+      setBaseCurrency((r?.base_currency as string) ?? "USD");
+      setQuoteCurrency((r?.quote_currency as string) ?? "PHP");
       setOfficerRateMode("AUTO");
     } catch (e: any) {
       setRateError(e?.message ?? "Failed to load exchange rate.");
@@ -172,12 +164,12 @@ export default function OfficerComputeEntriesPage() {
     setPreviewError(null);
 
     try {
-      const existing = await callEdgeJson("get-tax-preview", {
+      const existing = await callApi("/api/tax-preview", {
         document_set_id: documentSetId,
       });
 
-      setPreviewRows(existing?.rows ?? []);
-      setPreviewSummary(existing?.summary ?? null);
+      setPreviewRows((existing?.rows as PreviewRow[]) ?? []);
+      setPreviewSummary((existing?.summary as PreviewSummary) ?? null);
     } catch (e: any) {
       // Don’t block page
       setPreviewRows([]);
@@ -201,7 +193,7 @@ export default function OfficerComputeEntriesPage() {
 
     setProcessing(true);
     try {
-      const result = await callEdgeJson("compute-tax-preview", {
+      const result = await callApi("/api/tax-preview", {
         document_set_id: documentSetId,
         base_currency: baseCurrency || "USD",
         quote_currency: quoteCurrency || "PHP",
@@ -210,9 +202,18 @@ export default function OfficerComputeEntriesPage() {
         rate_mode: officerRateMode, // AUTO / MANUAL
       });
 
-      setPreviewRows(result?.rows ?? []);
-      setPreviewSummary(result?.summary ?? null);
+      setPreviewRows((result?.rows as PreviewRow[]) ?? []);
+      setPreviewSummary((result?.summary as PreviewSummary) ?? null);
       setShowConfirm(false);
+
+      // Log computation
+      await logActivity({
+        action: "OFFICER_COMPUTE_TAX",
+        actor_role: "CUSTOMS_OFFICER",
+        reference_type: "document_set",
+        reference_id: documentSetId,
+        remarks: `Computed tax preview (rate: ${exchangeRate})`,
+      });
     } catch (e: any) {
       alert(e?.message ?? "Failed to compute preview.");
     } finally {
@@ -233,11 +234,21 @@ const confirmComputation = async () => {
 
   setProcessing(true);
   try {
-    await callEdgeJson("confirm-computation", {
+    await callApi("/api/tax-preview", {
       document_set_id: documentSetId,
       exchange_rate: Number(exchangeRate),
       base_currency: baseCurrency,
       quote_currency: quoteCurrency,
+      confirm: true,
+    });
+
+    // Log confirmation
+    await logActivity({
+      action: "OFFICER_COMPUTE_TAX",
+      actor_role: "CUSTOMS_OFFICER",
+      reference_type: "document_set",
+      reference_id: documentSetId,
+      remarks: `Confirmed final computation (rate: ${exchangeRate})`,
     });
 
     alert("Tax computation confirmed.");
