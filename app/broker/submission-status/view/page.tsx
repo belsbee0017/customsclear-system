@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
 import Button from "@/app/components/Button";
@@ -33,6 +36,20 @@ type DocumentFile = {
 };
 
 export default function BrokerViewSubmissionPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={styles.container}>
+          <div style={styles.card}>Loading submission…</div>
+        </main>
+      }
+    >
+      <Inner />
+    </Suspense>
+  );
+}
+
+function Inner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const documentSetId = searchParams.get("document_set_id");
@@ -48,15 +65,17 @@ export default function BrokerViewSubmissionPage() {
 
     const fetchData = async () => {
       const { data: ds } = await supabase
-      .from("document_sets")
-      .select(`
-        document_set_id,
-        created_at,
-        status,
-        tax_computation ( tax_id )
-      `)
-      .eq("document_set_id", documentSetId)
-      .single();
+        .from("document_sets")
+        .select(
+          `
+          document_set_id,
+          created_at,
+          status,
+          tax_computation ( tax_id )
+        `
+        )
+        .eq("document_set_id", documentSetId)
+        .single();
 
       const { data: docs } = await supabase
         .from("documents")
@@ -65,9 +84,13 @@ export default function BrokerViewSubmissionPage() {
 
       setSubmission(ds as any);
       setDocuments(docs ?? []);
-      setHasComputation(Array.isArray((ds as any)?.tax_computation) && (ds as any).tax_computation.length > 0);
+      setHasComputation(
+        Array.isArray((ds as any)?.tax_computation) &&
+          (ds as any).tax_computation.length > 0
+      );
       setLoading(false);
-      };
+    };
+
     fetchData();
   }, [documentSetId]);
 
@@ -90,7 +113,6 @@ export default function BrokerViewSubmissionPage() {
             </p>
           </div>
 
-          {/* ✅ PAGE-LEVEL ONLY FIX */}
           <div style={styles.backButtonWrapper}>
             <Button variant="outline" onClick={() => router.back()}>
               Back
@@ -98,23 +120,24 @@ export default function BrokerViewSubmissionPage() {
           </div>
         </div>
 
-              <section style={{ marginTop: 10, marginBottom: 18 }}>
-        {(() => {
-          const raw = normStatus(submission.status);
-          const displayKey = hasComputation ? "completed" : raw;
+        <section style={{ marginTop: 10, marginBottom: 18 }}>
+          {(() => {
+            const raw = normStatus(submission.status);
+            const displayKey = hasComputation ? "completed" : raw;
 
-          return (
-            <div style={{ fontSize: 14 }}>
-              <div>
-                <strong>Status:</strong> {displayKey.replace(/_/g, " ").toUpperCase()}
+            return (
+              <div style={{ fontSize: 14 }}>
+                <div>
+                  <strong>Status:</strong>{" "}
+                  {displayKey.replace(/_/g, " ").toUpperCase()}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 13, color: "#333" }}>
+                  {STATUS_EXPLANATIONS[displayKey] ?? "Status update pending."}
+                </div>
               </div>
-              <div style={{ marginTop: 6, fontSize: 13, color: "#333" }}>
-                {STATUS_EXPLANATIONS[displayKey] ?? "Status update pending."}
-              </div>
-            </div>
-          );
-        })()}
-      </section>
+            );
+          })()}
+        </section>
 
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>Uploaded Documents</h2>
