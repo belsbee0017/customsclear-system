@@ -1,0 +1,3 @@
+{
+  "ignoreCommand": "node -e \"process.exit(0)\""
+}
