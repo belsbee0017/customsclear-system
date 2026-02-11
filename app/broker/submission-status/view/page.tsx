@@ -53,7 +53,7 @@ function Inner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const documentSetId = searchParams.get("document_set_id");
-  const supabase = createClient();
+
 
   const [loading, setLoading] = useState(true);
   const [submission, setSubmission] = useState<Submission | null>(null);
@@ -64,6 +64,7 @@ function Inner() {
     if (!documentSetId) return;
 
     const fetchData = async () => {
+      const supabase = createClient();
       const { data: ds } = await supabase
         .from("document_sets")
         .select(
