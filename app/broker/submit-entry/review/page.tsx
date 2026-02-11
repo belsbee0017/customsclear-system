@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
 import Button from "@/app/components/Button";
-
+export const dynamic = "force-dynamic";
 const supabase = createClient();
 
 /* ===============================
