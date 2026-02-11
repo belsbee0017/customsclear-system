@@ -1,12 +1,12 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
 import Button from "@/app/components/Button";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const STATUS_EXPLANATIONS: Record<string, string> = {
   pending: "Your submission has been received and is awaiting initial review.",
