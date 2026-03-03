@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
 import Button from "@/app/components/Button";
+import { formatPhTime } from "@/app/lib/activityLogger";
 
 /* ===============================
    TYPES
@@ -135,7 +136,7 @@ export default function OfficerSubmittedEntriesPage() {
                 </td>
 
                 <td style={styles.td}>
-                  {new Date(entry.created_at).toLocaleString()}
+                  {formatPhTime(entry.created_at)}
                 </td>
 
                 <td style={styles.td}>

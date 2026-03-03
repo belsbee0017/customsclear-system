@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 
 type ExtractedField = {
   field_name: string;
@@ -86,11 +91,7 @@ export async function POST(req: NextRequest) {
     
     let rawText = "";
     try {
-      // Dynamic import for CJS module
-      const pdfParseModule = await import("pdf-parse");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parser = (pdfParseModule as any).default || pdfParseModule;
-      const pdfData = await parser(buffer);
+      const pdfData = await pdfParse(buffer);
       rawText = pdfData.text || "";
     } catch (parseErr) {
       console.error("pdf-parse failed:", parseErr);

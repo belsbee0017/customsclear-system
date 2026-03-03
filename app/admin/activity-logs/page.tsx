@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/app/lib/supabaseClient";
-import { formatPhTime } from "@/app/lib/activityLogger";
+import { formatPhTime, parseUtcDate } from "@/app/lib/activityLogger";
 
 const supabase = createClient();
 
@@ -56,8 +56,8 @@ export default function AdminActivityLogsPage() {
     if (referenceId) query = query.eq("reference_id", referenceId);
 
     // ✅ date inputs are YYYY-MM-DD; make To inclusive (end of day)
-    if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00.000Z`);
-    if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59.999Z`);
+    if (dateFrom) query = query.gte("created_at", `${dateFrom}T00:00:00+08:00`);
+    if (dateTo) query = query.lte("created_at", `${dateTo}T23:59:59+08:00`);
 
     const { data, error } = await query;
     if (!error && data) setLogs(data);
@@ -215,7 +215,7 @@ function getRoleBadgeStyle(role: string): React.CSSProperties {
 }
 
 function getRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
+  const date = parseUtcDate(dateStr);
   const now = new Date();
   
   const diffMs = now.getTime() - date.getTime();

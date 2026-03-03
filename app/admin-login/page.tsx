@@ -20,13 +20,27 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email,
-      password
+      password,
     });
 
     if (error) {
       setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Verify the signed-in user is an active ADMIN
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role, status")
+      .eq("user_id", authData.user!.id)
+      .single();
+
+    if (!profile || profile.role !== "ADMIN" || profile.status !== "ACTIVE") {
+      await supabase.auth.signOut();
+      setError("Access denied. This login is for system administrators only.");
       setLoading(false);
       return;
     }
@@ -78,6 +92,12 @@ export default function AdminLoginPage() {
             <Button type="submit" disabled={loading}>
               {loading ? "Logging in…" : "Log In as Admin"}
             </Button>
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 16 }}>
+            <a href="/forgot-password" style={{ fontSize: 13, color: "#2563eb" }}>
+              Forgot password?
+            </a>
           </div>
         </form>
       </div>

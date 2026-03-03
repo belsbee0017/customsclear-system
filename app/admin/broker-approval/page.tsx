@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/app/lib/supabaseClient";
 import Button from "@/app/components/Button";
+import { formatPhTime } from "@/app/lib/activityLogger";
 
 const supabase = createClient();
 
@@ -74,7 +75,7 @@ export default function BrokerApprovalPage() {
       r.last_name,
       r.email,
       r.status,
-      r.created_at ? new Date(r.created_at).toLocaleString() : "",
+      r.created_at ? formatPhTime(r.created_at) : "",
     ]);
 
     const csv = [headers, ...csvRows].map((row) => row.map((v) => `"${String(v ?? "")}"`).join(",")).join("\n");
@@ -177,7 +178,7 @@ export default function BrokerApprovalPage() {
                       {b.status}
                     </span>
                   </td>
-                  <td style={styles.centerCell}>{b.created_at ? new Date(b.created_at).toLocaleString() : ""}</td>
+                  <td style={styles.centerCell}>{b.created_at ? formatPhTime(b.created_at) : ""}</td>
                 </tr>
               ))}
               {history.length === 0 && (

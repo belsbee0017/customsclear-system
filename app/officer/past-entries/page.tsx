@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/app/components/Button";
 import { createClient } from "@/app/lib/supabaseClient";
+import { formatPhTime } from "@/app/lib/activityLogger";
 
 type AuditRow = {
   log_id: string;
@@ -130,7 +131,7 @@ export default function OfficerPastEntriesPage() {
                 rows.map((r) => (
                 <tr key={r.log_id}>
                     <td style={styles.td}>
-                    {new Date(r.created_at).toLocaleString()}
+                    {formatPhTime(r.created_at)}
                     </td>
 
                     <td style={styles.td}>

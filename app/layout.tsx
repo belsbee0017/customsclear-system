@@ -6,8 +6,9 @@ import ActivityTracker from "./components/ActivityTracker";
 
 const roboto = Roboto({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  style: ["normal", "italic"]
+  weight: ["300", "400", "500", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-roboto",
 });
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={roboto.variable}>
       <body className={roboto.className}>
         <ActivityTracker />
         <Header />

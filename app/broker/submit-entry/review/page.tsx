@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
-import { logActivity } from "@/app/lib/activityLogger";
+import { logActivity, formatPhTime } from "@/app/lib/activityLogger";
 import Button from "@/app/components/Button";
 export const dynamic = "force-dynamic";
 const supabase = createClient();
@@ -109,7 +109,8 @@ export default function BrokerSubmitEntryReviewPage() {
 
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  
+  const [submitting, setSubmitting] = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
 
   // used to force reload without hard refresh
   const [reloadKey, setReloadKey] = useState(0);
@@ -155,6 +156,14 @@ export default function BrokerSubmitEntryReviewPage() {
       }
 
       setDocs(documents as DocumentRow[]);
+
+      // Check if already submitted
+      const { data: dsData } = await supabase
+        .from("document_sets")
+        .select("status")
+        .eq("document_set_id", documentSetId)
+        .single();
+      if (dsData?.status === "Submitted") setAlreadySubmitted(true);
 
       const docMap: Record<string, DocumentRow> = Object.fromEntries(
         (documents as DocumentRow[]).map((d: DocumentRow) => [d.document_id, d])
@@ -369,6 +378,37 @@ const saveChanges = async () => {
   }
 };
 
+const submitToOfficer = async () => {
+  if (!documentSetId) return;
+  if (alreadySubmitted) return;
+
+  setSubmitting(true);
+  try {
+    const { error } = await supabase
+      .from("document_sets")
+      .update({ status: "Submitted" })
+      .eq("document_set_id", documentSetId);
+
+    if (error) throw error;
+
+    await logActivity({
+      action: "DOCUMENT_SAVE",
+      actor_role: "BROKER",
+      reference_type: "document_set",
+      reference_id: documentSetId,
+      remarks: "Submitted to officer for review",
+    });
+
+    setAlreadySubmitted(true);
+    alert("Entry submitted to officer for review.");
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Submit failed.";
+    alert(message);
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 const applyMockExtraction = async (documentId: string, docType: DocumentType) => {
   const whitelist = FIELD_WHITELIST[docType] ?? [];
   if (whitelist.length === 0) return;
@@ -518,38 +558,57 @@ const runOCRAndMap = async () => {
             </h1>
             {lastSaved && (
               <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                Last saved: {lastSaved.toLocaleTimeString("en-PH", { 
-                  timeZone: "Asia/Manila", 
-                  hour: "2-digit", 
-                  minute: "2-digit", 
-                  second: "2-digit",
-                  hour12: true 
-                })}
+                Last saved: {formatPhTime(lastSaved.toISOString())}
               </div>
             )}
           </div>
 
-          <div style={styles.actions}>
-            {!hasExtracted && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <div style={styles.actions}>
+              {!hasExtracted && (
+                <Button variant="outline" onClick={runOCRAndMap} disabled={runningOCR}>
+                  {runningOCR ? ocrMsg ?? "Processing…" : "Run OCR & Auto-Extract"}
+                </Button>
+              )}
 
-              <Button variant="outline" onClick={runOCRAndMap} disabled={runningOCR}>
-                {runningOCR ? ocrMsg ?? "Processing…" : "Run OCR & Auto-Extract"}
+              <Button variant="primary" onClick={saveChanges} disabled={saving}>
+                {saving ? "Saving…" : "Save Changes"}
               </Button>
 
-            )}
+              <Button
+                variant="outline"
+                onClick={() => setReloadKey((k) => k + 1)}
+                disabled={runningOCR || loading}
+              >
+                Refresh Fields
+              </Button>
 
-            <Button variant="primary" onClick={saveChanges} disabled={saving}>
-              {saving ? "Saving…" : "Save Changes"}
-            </Button>
+              <button
+                onClick={submitToOfficer}
+                disabled={submitting || alreadySubmitted}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontWeight: "bold",
+                  cursor: submitting || alreadySubmitted ? "not-allowed" : "pointer",
+                  background: alreadySubmitted ? "#d1fae5" : "#16a34a",
+                  color: alreadySubmitted ? "#14532d" : "#ffffff",
+                  border: alreadySubmitted ? "1px solid #6ee7b7" : "none",
+                  opacity: submitting ? 0.7 : 1,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {submitting ? "Submitting…" : alreadySubmitted ? "Submitted to Officer" : "Submit to Officer"}
+              </button>
+            </div>
 
-          <Button
-            variant="outline"
-            onClick={() => setReloadKey((k) => k + 1)}
-            disabled={runningOCR || loading}
-          >
-            Refresh Fields
-          </Button>
-        </div>
+            <div style={{ fontSize: 11, color: "#6b7280" }}>
+              {alreadySubmitted
+                ? "This entry has been submitted and is visible to the officer."
+                : "Save your changes first, then Submit to Officer when ready."}
+            </div>
+          </div>
 
         </header>
 
@@ -662,13 +721,15 @@ const styles: Record<string, React.CSSProperties> = {
     paddingBottom: 12,
     borderBottom: "1px solid #eee",
   },
-  label: { fontWeight: 700, marginBottom: 6, display: "block", fontSize: 13 },
+  label: { fontWeight: 700, marginBottom: 6, display: "block", fontSize: 13, color: "#141414" },
   input: {
     width: "100%",
     padding: "10px 10px",
     borderRadius: 8,
     border: "1px solid #cbd5e1",
     background: "#fff",
+    color: "#141414",
+    fontSize: 14,
   },
   right: {
     background: "#fff",

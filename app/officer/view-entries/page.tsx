@@ -223,27 +223,106 @@ export default function OfficerViewEntriesPage() {
   }, [rawFields, activeDoc]);
 
   /* ===============================
+     INLINE VALIDATION (client-side, no DB rules required)
+     Runs after rawFields loads and produces ValidationItem[] directly.
+  =============================== */
+  const REQUIRED_FIELDS: Record<DocumentType, { field: string; label: string }[]> = {
+    GD: [
+      { field: "declarant_name", label: "Declarant Name" },
+      { field: "consignee", label: "Consignee" },
+      { field: "hs_code", label: "HS Code" },
+      { field: "declared_value", label: "Declared Value" },
+      { field: "gross_weight", label: "Gross Weight" },
+      { field: "country_of_origin", label: "Country of Origin" },
+    ],
+    INVOICE: [
+      { field: "invoice_number", label: "Invoice Number" },
+      { field: "invoice_date", label: "Invoice Date" },
+      { field: "description_of_goods", label: "Description of Goods" },
+      { field: "unit_price", label: "Unit Price" },
+      { field: "total_value", label: "Total Value" },
+    ],
+    PACKING_LIST: [
+      { field: "number_of_packages", label: "Number of Packages" },
+      { field: "net_weight", label: "Net Weight" },
+      { field: "gross_weight", label: "Gross Weight" },
+    ],
+    AWB: [
+      { field: "awb_number", label: "AWB Number" },
+      { field: "shipper", label: "Shipper" },
+      { field: "consignee", label: "Consignee" },
+      { field: "gross_weight", label: "Gross Weight" },
+    ],
+  };
+
+  const computedValidationItems: ValidationItem[] = useMemo(() => {
+    // Build a lookup: docType → field_name → value
+    const fieldMap: Record<string, Record<string, string>> = {};
+
+    for (const f of rawFields) {
+      const doc = documents.find((d) => d.document_id === f.document_id);
+      if (!doc) continue;
+      if (!fieldMap[doc.type]) fieldMap[doc.type] = {};
+      const val = (f.normalized_value ?? f.extracted_value ?? "").trim();
+      if (val) fieldMap[doc.type][f.field_name] = val;
+    }
+
+    const items: ValidationItem[] = [];
+    let idx = 0;
+
+    for (const docType of (["GD", "INVOICE", "PACKING_LIST", "AWB"] as DocumentType[])) {
+      const rules = REQUIRED_FIELDS[docType];
+      const ruleType: ValidationRuleType = docType === "GD" ? "REQUIRED" : docType === "INVOICE" ? "VALUATION" : docType === "AWB" ? "LOGISTICS" : "CLASSIFICATION";
+      const docFields = fieldMap[docType] ?? {};
+      const docPresent = documents.some((d) => d.type === docType);
+
+      for (const rule of rules) {
+        const hasValue = !!(docFields[rule.field]);
+        const status: ValidationStatus = hasValue ? "pass" : "fail";
+        const severity: ValidationSeverity = (!hasValue && docPresent) ? "critical" : (!hasValue && !docPresent) ? "warning" : null;
+
+        items.push({
+          id: `inline-${docType}-${rule.field}-${idx++}`,
+          rule_type: ruleType,
+          status,
+          severity,
+          text: hasValue
+            ? `${rule.label} is present. (${docType})`
+            : docPresent
+            ? `${rule.label} is missing or empty in ${docType}.`
+            : `${rule.label} could not be checked — ${docType} document not uploaded.`,
+        });
+      }
+    }
+
+    return items;
+  }, [rawFields, documents]);
+
+  /* ===============================
      VALIDATION UI MODEL
+     Use computed items if DB table is empty, otherwise use DB rows.
   =============================== */
   const validationItems: ValidationItem[] = useMemo(() => {
-    return validationRows
-      .map((r) => {
-        const vr = r.validation_rules?.[0]; // first joined rule row
-        const ruleType = ((vr?.rule_type ?? "LOGISTICS") as ValidationRuleType);
-        const expected = vr?.expected_behavior?.trim();
-
-        const msg = r.remarks?.trim();
-
-        return {
-          id: r.result_id,
-          rule_type: ruleType,
-          status: r.status,
-          severity: r.severity,
-          text: expected || msg || "Validation result recorded.",
-        };
-      })
-      .filter(Boolean);
-  }, [validationRows]);
+    // Prefer DB rows if they exist; fall back to inline computation
+    if (validationRows.length > 0) {
+      return validationRows
+        .map((r) => {
+          const vr = r.validation_rules?.[0];
+          const ruleType = ((vr?.rule_type ?? "LOGISTICS") as ValidationRuleType);
+          const expected = vr?.expected_behavior?.trim();
+          const msg = r.remarks?.trim();
+          return {
+            id: r.result_id,
+            rule_type: ruleType,
+            status: r.status,
+            severity: r.severity,
+            text: expected || msg || "Validation result recorded.",
+          };
+        })
+        .filter(Boolean);
+    }
+    return computedValidationItems;
+  }, [validationRows, computedValidationItems]);
 
   const validationsByType = useMemo(() => {
     const groups: Record<ValidationRuleType, ValidationItem[]> = {
@@ -275,6 +354,10 @@ export default function OfficerViewEntriesPage() {
   =============================== */
   const openConfirm = (action: "SEND_BACK" | "REJECT" | "PROCEED") => {
     if (processing) return;
+    if (action !== "PROCEED" && !remarks.trim()) {
+      alert("Remarks are required before sending back or rejecting. Please fill in the Officer Remarks field.");
+      return;
+    }
     setSelectedAction(action);
     setShowConfirmModal(true);
   };

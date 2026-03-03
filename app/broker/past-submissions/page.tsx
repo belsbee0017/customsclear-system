@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
+import { formatPhTime } from "@/app/lib/activityLogger";
 
 type Submission = {
   document_set_id: string;
@@ -12,18 +13,7 @@ type Submission = {
   status: string;
 };
 
-function formatDateTime(dateStr: string) {
-  const date = new Date(dateStr);
-  return date.toLocaleString("en-PH", {
-    timeZone: "Asia/Manila",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+const formatDateTime = formatPhTime;
 
 export default function BrokerPastSubmissionsPage() {
   const router = useRouter();

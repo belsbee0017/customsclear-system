@@ -51,12 +51,13 @@ export default function BrokerSignupPage() {
           <h1 style={styles.title}>Registration Submitted</h1>
 
           <p style={styles.textItalic}>
-            Broker accounts require approval by the system administrator before
-            access is granted.
+            Your registration has been submitted. Broker accounts require
+            approval by the system administrator before access is granted. You
+            will receive an email once your account has been reviewed.
           </p>
 
           <div style={styles.buttonWrapper}>
-            <Button>
+            <Button onClick={() => window.location.href = "/login"}>
               Return to Login
             </Button>
           </div>

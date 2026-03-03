@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 
 type DocumentTypeEnum = "GD" | "INVOICE" | "PACKING_LIST" | "AWB";
 
@@ -312,10 +317,7 @@ async function extractWithPdfParse(
   buffer: Buffer,
   docType: DocumentTypeEnum
 ): Promise<Record<string, string>> {
-  const pdfParseModule = await import("pdf-parse");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const parser = (pdfParseModule as any).default || pdfParseModule;
-  const pdfData = await parser(buffer);
+  const pdfData = await pdfParse(buffer);
   const text = pdfData.text.replace(/\s+/g, " ").trim();
 
   const result: Record<string, string> = {};

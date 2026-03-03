@@ -30,22 +30,20 @@ export default function ChangePasswordModal({ onClose }: Props) {
   const [loading, setLoading] = useState(false);
 
   const handleChangePassword = async () => {
-  setError(null);
+    setError(null);
 
-  /* ⬇️ ADD HERE /
-  const validationError = validatePassword(password);
-  if (validationError) {
-    setError(validationError);
-    return;
-  }
+    const validationError = validatePassword(password);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
-  if (password !== confirm) {
-    setError("Passwords do not match.");
-    return;
-  }
-  / ⬆️ END */
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
   const { error } = await supabase.auth.updateUser({ password });
 
@@ -76,8 +74,8 @@ export default function ChangePasswordModal({ onClose }: Props) {
 
         {/* OPTIONAL UI HELPER TEXT */}
         <p style={styles.helperText}>
-          Password must be at least 8 characters and include uppercase, lowercase,
-          number, and special character.
+          Password must be at least 12 characters and include uppercase, lowercase,
+          a number, and a special character.
         </p>
 
         <label style={styles.label}>Confirm New Password</label>

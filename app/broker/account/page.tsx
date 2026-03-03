@@ -1,16 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
+import { formatPhTime } from "@/app/lib/activityLogger";
 import Button from "@/app/components/Button";
 import ChangePasswordModal from "@/app/components/ChangePasswordModal";
 
+type BrokerProfile = {
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  role: string;
+  status: string;
+  created_at: string;
+};
+
 export default function BrokerAccountPage() {
-  const [profile, setProfile] = useState<any>(null);
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+
+  const [profile, setProfile] = useState<BrokerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const supabase = createClient();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -19,8 +32,7 @@ export default function BrokerAccountPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        setError("Not authenticated.");
-        setLoading(false);
+        router.replace("/login");
         return;
       }
 
@@ -43,7 +55,7 @@ export default function BrokerAccountPage() {
     };
 
     loadProfile();
-  }, []);
+  }, [router, supabase]);
 
   if (loading) {
     return <main style={styles.container}>Loading account…</main>;
@@ -79,8 +91,8 @@ export default function BrokerAccountPage() {
         </div>
 
         <div style={styles.row}>
-          <strong>Created:</strong>{" "}
-          {new Date(profile.created_at).toLocaleDateString()}
+          <strong>Member Since:</strong>{" "}
+          {formatPhTime(profile.created_at)}
         </div>
 
         <div style={{ marginTop: "24px" }}>

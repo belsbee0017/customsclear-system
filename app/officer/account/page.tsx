@@ -39,19 +39,20 @@ export default function OfficerAccountPage() {
       }
 
         const { data } = await supabase
-    .from("users")
-   .select(`
-    user_id,
-    email,
-    first_name,
-    last_name,
-    role,
-    status,
-    mobile_number
-    `)
-
-    .eq("user_id", session.user.id)
-    .single();
+          .from("users")
+          .select(`
+            user_id,
+            email,
+            first_name,
+            middle_name,
+            last_name,
+            role,
+            unit,
+            status,
+            mobile_number
+          `)
+          .eq("user_id", session.user.id)
+          .single();
 
       if (data) setProfile(data);
       setLoading(false);

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabaseClient";
 import Button from "@/app/components/Button";
+import { formatPhTime } from "@/app/lib/activityLogger";
 
 const supabase = createClient();
 
@@ -78,18 +79,7 @@ function normStatus(s: string | null | undefined) {
 /* ===============================
    COMPONENT
 ================================ */
-function formatDateTime(dateStr: string) {
-  const date = new Date(dateStr);
-  return date.toLocaleString("en-PH", {
-    timeZone: "Asia/Manila",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+const formatDateTime = formatPhTime;
 
 export default function ViewClient({ documentSetId }: { documentSetId: string | null }) {
   const router = useRouter();
